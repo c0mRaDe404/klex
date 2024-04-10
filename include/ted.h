@@ -14,11 +14,19 @@ typedef enum
 } MODE;
 
 
-typedef struct node
+// typedef struct node
+// {
+// 	char* text;
+// 	int line;
+// 	size_t size;
+// 	struct node* next;
+// 	struct node* prev;
+// }node;
+
+
+typedef struct
 {
-	char* text;
-	int line;
-	size_t size;
-	struct node* next;
-	struct node* prev;
-}node;
+	char *text;
+	int   line;
+	int   pos;
+}buffer;

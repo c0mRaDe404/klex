@@ -62,15 +62,21 @@ void NormalMode(int ch,int x,int y)
 
 }
 
-void InsertMode(int ch,int x,int y)
+void InsertMode(int ch,buffer *row,int x,int y)
 {
-	
+	//printw("%d-",x);
+	(row+y)->line = y;
+	(row+y)->pos = x;
+
 
 	if(ch == KEY_BACKSPACE)
 	{
 		refresh();
-		//printw("%d",x);
 		mvwdelch(stdscr,y,x-1);
+		if(x==0)
+		{
+			move(y-1,(row+y-1)->pos);
+		}
 	}
 	else if(ch == KEY_ESC)
 	{
@@ -82,8 +88,11 @@ void InsertMode(int ch,int x,int y)
 	}
 	else if (ch == KEY_ENTER)
 	{
-		wmove(stdscr, y+1, x);
+		(row+y+1)->text = (char*) calloc(BUFFER,sizeof(char));
+		//realloc((row+y)->text,x);
+		wmove(stdscr, y+1, 0);
 		wrefresh(stdscr);
+		(row+y)->line++;
 	}
 	else if (ch == KEY_LEFT)
 	{
@@ -105,7 +114,22 @@ void InsertMode(int ch,int x,int y)
 		wmove(stdscr, y - 1,x);
 		wrefresh(stdscr);
 	}
-	else addch(ch);
+	else if(ch == CTRL('s'))
+	{
+		FILE* file = fopen("new.txt","wb");
+		for(int i = 0;i<y;i++) 
+			fwrite((row+i)->text,sizeof(char),(row+i)->pos,file);
+		fclose(file);
+	}
+	else
+	{
+
+		
+		(row+y)->text[x]=(char)ch;
+		printw("%c",(row+y)->text[x]);
+		//addch(ch);
+
+	}
 
 }
 
@@ -115,6 +139,8 @@ int main()
 {
 	int ch, max_x,max_y,cur_x=0,cur_y=0;
 
+	buffer *row = (buffer*)calloc(BUFFER,sizeof(buffer)); // 1024 lines
+	row->text = (char*) calloc(BUFFER,sizeof(char)); //1024 characters
 
 	EditorStart(); 
 
@@ -134,12 +160,16 @@ int main()
 				break;
 
 			case INSERT:
-				InsertMode(ch,cur_x,cur_y);
+				// printw("%d-",cur_x);
+				InsertMode(ch,row,cur_x,cur_y);
 				break;
 		}
 
 		
 	}
+
+	free(row->text);
+	free(row);
 
 	refresh();
 	endwin();
