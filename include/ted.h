@@ -1,3 +1,6 @@
+#ifndef TED_H
+#define TED_H
+
 #define KEY_ENTER '\n'
 #define KEY_INSERT 'i'
 #define KEY_Q 'q'
@@ -14,19 +17,5 @@ typedef enum
 } MODE;
 
 
-// typedef struct node
-// {
-// 	char* text;
-// 	int line;
-// 	size_t size;
-// 	struct node* next;
-// 	struct node* prev;
-// }node;
 
-
-typedef struct
-{
-	char *text;
-	int   line;
-	int   pos;
-}buffer;
+#endif
