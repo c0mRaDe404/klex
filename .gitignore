@@ -1,3 +1,4 @@
-./.vscode
+.vscode
 *.txt
 ./ted
+temp/

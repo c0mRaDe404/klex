@@ -1,8 +1,5 @@
-#include <stdio.h>
-#include <stdbool.h>
-#include <string.h>
-#include <stdlib.h>
-#include <buffer.h>
+#include "../include/buffer.h"
+
 
 
 
@@ -20,6 +17,8 @@ buffer* allocate_buffer(size_t init_size)
       free (buf);
       return NULL;
     }
+
+  buf->prev = buf->next = NULL;
   buf->size    = init_size;
   buf->cursor  = 0;
   buf->gap_end = init_size;
@@ -60,9 +59,9 @@ void shrink_buffer(buffer* buf)
     {
 
         char* new_buf = realloc(buf->buffer,gb_used(buf));
-        move_string(buf,new_buf,gb_used(buf));
+        //move_string(buf,new_buf,gb_used(buf));
     
-        //memmove(new_buf+gb_used(buf)-gb_back(buf),buf->buffer+buf->gap_end,gb_back(buf));
+        memmove(new_buf+gb_used(buf)-gb_back(buf),buf->buffer+buf->gap_end,gb_back(buf));
         buf->buffer = new_buf;
         buf->size = gb_used(buf);
         buf->gap_end = buf->cursor = buf->size;
@@ -134,6 +133,7 @@ void cursor_right (buffer *buf)
 {
   if (buf->gap_end < buf->size)
     {
+    
       buf->buffer[buf->cursor++] = buf->buffer[buf->gap_end++];
     }
 
@@ -149,29 +149,3 @@ void delete (buffer *buf)
 
 }
 
-
-int main()
-{
-
-
-    buffer* new = allocate_buffer(11);
-    
-    insert(new,'h');
-    insert(new,'e');
-    insert(new,'l');
-    insert(new,'l');
-    insert(new,'o');
-
-
-    FILE* fd = fopen("new","w");
- //   shrink_buffer(new);
-    fwrite(new->buffer,new->size,1,fd);
-
-    fclose(fd);
-    
-   
-    printf("cursor at %ld",new->cursor);
-    for(int i = 0;i<new->size;i++) printf("\n%d(%c)",i+1,new->buffer[i]);
-        
-
-}

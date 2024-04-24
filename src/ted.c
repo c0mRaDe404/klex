@@ -1,12 +1,8 @@
-#include <string.h>
+#include "../include/buffer.h"
+#include "../include/ted.h"
 #include <ncurses.h>
-#include <stdlib.h>
-#include <ted.h>
-#include <buffer.h>
-
-
+#define ENTER 10
 MODE mode = NORMAL;
-
 
 
 char *Mode()
@@ -62,88 +58,86 @@ void NormalMode(int ch,int x,int y)
 
 }
 
-void InsertMode(int ch,int x,int y)
+
+
+
+void InsertMode(buffer* buf,int ch,int x,int y)
 {
-    int maxy = getmaxy(stdscr);
+
+         
+//    buf = ( buf->next == NULL) ? buf: buf->next;
+ 
+    int maxy = getmaxy(stdscr);    
 
 
-	if(ch == KEY_BACKSPACE)
-	{
-		refresh();
-		mvwdelch(stdscr,y,x-1);
-		
-	}
-	else if(ch == KEY_ESC)
-	{
-		noecho();
-		mode = NORMAL;
-		mvwprintw(stdscr,maxy-1,0,"%s", Mode());
-		move(0,0);
+    if(ch == KEY_BACKSPACE) {
 
-	}
-	else if (ch == KEY_ENTER)
-	{
+        refresh();
+        mvwdelch(stdscr,y,x-1);
+        delete(buf);
+    }
+
+    else if(ch == KEY_ESC) {
+
+        noecho();
+        mode = NORMAL;
+        mvwprintw(stdscr,maxy-1,0,"%s", Mode());
+        move(0,0);
+
+    } else if (ch == KEY_LEFT) {
+    
+      cursor_left(buf);
+      wmove(stdscr, getcury(stdscr), getcurx(stdscr) - 1);
+      wrefresh(stdscr);
+
+    } else if (ch == KEY_RIGHT) {
+    
+      cursor_right(buf);
+      wmove(stdscr, getcury(stdscr), getcurx(stdscr) + 1);
+      wrefresh(stdscr);
+
+    } else if (ch == KEY_DOWN) {
+    
+      wmove(stdscr, buf->line++, buf->cursor);
+
+      wrefresh(stdscr);
+
+    } else if (ch == KEY_UP) {
+        
         
 
+     wmove(stdscr, buf->line--, buf->cursor);
+      wrefresh(stdscr);
 
-		wmove(stdscr, y+1, 0);
-		wrefresh(stdscr);
-	
-	}
-    else if(ch == 9)
-    {
-        return;
+    } else {
+
+          size_t cursor = buf->cursor;
+          insert(buf, ch);
+          mvprintw(buf->line,buf->cursor,"%c",buf->buffer[cursor]);
+          //addch(buf->buffer[cursor]);
 
     }
-	else if (ch == KEY_LEFT)
-	{
-		wmove(stdscr, getcury(stdscr), getcurx(stdscr) - 1);
-		wrefresh(stdscr);
-	}
-	else if (ch == KEY_RIGHT)
-	{
-		wmove(stdscr, getcury(stdscr), getcurx(stdscr) + 1);
-		wrefresh(stdscr);
-	}
-	else if (ch == KEY_DOWN)
-	{
-		wmove(stdscr, y+1, x);
-		wrefresh(stdscr);
-	}
-	else if (ch == KEY_UP)
-	{
-		wmove(stdscr, y - 1,x);
-		wrefresh(stdscr);
-	}
-	else if(ch == CTRL('s'))
-	{
 
-		return;
-	}
-	else
-	{
-
-		return;
-	}
-
-
-
+    
 }
 
 
 
 int main()
 {
-	int ch,cur_x=0,cur_y=0;
+	int     ch,cur_x = 0,cur_y = 0;
+	buffer* buf = allocate_buffer(MIN_BUF_SIZE);
+    buffer* head = buf;
+    buf->line = cur_y;
+    
+    EditorStart();
 
-	EditorStart(); 
 
 	while (ch != 'q')
 	{
 
 		ch = getch();
 		getyx(stdscr,cur_y,cur_x);
-		refresh();
 
 		switch (mode)
 		{
@@ -152,6 +146,34 @@ int main()
 				break;
 
 			case INSERT:
+                if(ch == ENTER)
+                {
+
+
+                        buf->next = (buf->next == NULL) ? allocate_buffer(MIN_BUF_SIZE) : NULL;
+                        buf->next->prev = buf;
+                        buf = buf->next;
+                        buf->line = cur_y+1;
+                        
+                        wmove(stdscr,cur_y,0);
+                        wrefresh(stdscr);
+
+                } else if(ch == CTRL('s')) {
+        
+                            FILE* file = fopen("sample","w");
+
+                    while(head!=NULL){
+
+                            shrink_buffer(head);
+                            fwrite(head->buffer,head->size,1,file);
+                            head = head->next;
+                    }
+
+                    fclose(file);
+                        
+                 } 
+
+                InsertMode(buf,ch,cur_x,cur_y);
 				break;
             case REPLACE:
                 break;
@@ -160,7 +182,8 @@ int main()
 		
 	}
 
-
+    
+   
 	refresh();
 	endwin();
 	return 0;

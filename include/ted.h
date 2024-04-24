@@ -17,5 +17,8 @@ typedef enum
 } MODE;
 
 
+char* Mode();
+void EditorStart();
+void NormalMode(int,int,int);
 
 #endif
