@@ -61,7 +61,7 @@ void NormalMode(int ch,int x,int y)
 
 
 
-void InsertMode(buffer* buf,int ch,int x,int y)
+void InsertMode(buffer* buf,int ch,Line* line_ptr,int x,int y)
 {
 
          
@@ -73,8 +73,14 @@ void InsertMode(buffer* buf,int ch,int x,int y)
     if(ch == KEY_BACKSPACE) {
 
         refresh();
-        mvwdelch(stdscr,y,x-1);
-        delete(buf);
+        if(!(buf->line == 0 && buf->cursor == 0))
+        {
+            size_t BufferLine;
+            BufferLine = (buf->cursor == 0) ? --buf->line :buf->line;
+    
+            mvwdelch(stdscr,buf->line,delete(line_ptr->newline[BufferLine]));
+;
+         }
     }
 
     else if(ch == KEY_ESC) {
@@ -86,41 +92,71 @@ void InsertMode(buffer* buf,int ch,int x,int y)
 
     } else if (ch == KEY_LEFT) {
     
-      cursor_left(buf);
+      cursor_left(line_ptr->newline[buf->line]);
       wmove(stdscr, getcury(stdscr), getcurx(stdscr) - 1);
       wrefresh(stdscr);
 
     } else if (ch == KEY_RIGHT) {
     
-      cursor_right(buf);
+      cursor_right(line_ptr->newline[buf->line]);
       wmove(stdscr, getcury(stdscr), getcurx(stdscr) + 1);
       wrefresh(stdscr);
 
     } else if (ch == KEY_DOWN) {
-    
-      wmove(stdscr, buf->line++, buf->cursor);
+     
+      buf->line = (buf->line < line_ptr->linenumber) ? ++buf->line : buf->line;
 
+      wmove(stdscr,buf->line,line_ptr->newline[buf->line]->cursor);
       wrefresh(stdscr);
 
     } else if (ch == KEY_UP) {
         
+       
+      buf->line = (buf->line > 0) ? --buf->line : buf->line;
         
-
-     wmove(stdscr, buf->line--, buf->cursor);
+      wmove(stdscr,buf->line,line_ptr->newline[buf->line]->cursor);
       wrefresh(stdscr);
 
     } else {
 
-          size_t cursor = buf->cursor;
-          insert(buf, ch);
-          mvprintw(buf->line,buf->cursor,"%c",buf->buffer[cursor]);
-          //addch(buf->buffer[cursor]);
+           size_t cursor = line_ptr->newline[buf->line]->cursor;
+           insert(line_ptr->newline[buf->line], ch);
+           mvprintw(buf->line,cursor,"%c",line_ptr->newline[buf->line]->buffer[cursor]);
+         
 
     }
 
     
 }
 
+
+Line* allocate_ptr(size_t size)
+{
+    const size_t min_len = 100;
+    size = (size > min_len) ? size : min_len;
+
+    Line* line = malloc(sizeof(Line));
+    line->newline = calloc(size,sizeof(buffer*));
+    line->linenumber = 0;
+    line->total_size = size;
+    return line;
+
+}
+
+
+void insert_line(Line* line,buffer* buf,size_t line_no)
+{
+
+    
+    if(line_no > line->total_size)
+    {
+        line->total_size = line->total_size*2;
+        line->newline = realloc(line->newline,line->total_size*sizeof(buffer));
+    }
+
+    line->newline[line_no] = buf;
+    line->linenumber = line_no;
+}
 
 
 int main()
@@ -129,7 +165,11 @@ int main()
 	buffer* buf = allocate_buffer(MIN_BUF_SIZE);
     buffer* head = buf;
     buf->line = cur_y;
-    
+
+    Line* line_ptr = allocate_ptr(100);
+
+    insert_line(line_ptr,buf,buf->line);
+
     EditorStart();
 
 
@@ -149,13 +189,15 @@ int main()
                 if(ch == ENTER)
                 {
 
-
+                        insert(buf,ch);
+                       
                         buf->next = (buf->next == NULL) ? allocate_buffer(MIN_BUF_SIZE) : NULL;
                         buf->next->prev = buf;
                         buf = buf->next;
-                        buf->line = cur_y+1;
-                        
-                        wmove(stdscr,cur_y,0);
+                        buf->line = buf->prev->line+1;
+                        insert_line(line_ptr,buf,buf->line);
+ 
+                        wmove(stdscr,buf->line,buf->cursor);
                         wrefresh(stdscr);
 
                 } else if(ch == CTRL('s')) {
@@ -171,10 +213,9 @@ int main()
 
                     fclose(file);
                         
-                 } 
+                 }  else InsertMode(line_ptr->newline[buf->line],ch,line_ptr,cur_x,cur_y);
+				    break;
 
-                InsertMode(buf,ch,cur_x,cur_y);
-				break;
             case REPLACE:
                 break;
 		}

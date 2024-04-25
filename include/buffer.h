@@ -38,6 +38,6 @@ bool grow_buffer(buffer*,size_t);
 bool insert(buffer*,char);
 void cursor_left(buffer*);
 void cursor_right(buffer*);
-void delete(buffer*);
+int delete(buffer*);
 
 #endif

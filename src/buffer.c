@@ -140,12 +140,14 @@ void cursor_right (buffer *buf)
 }
 
 
-void delete (buffer *buf)
+int  delete (buffer *buf)
 {
   if (buf->cursor > 0)
     {
       buf->buffer[buf->cursor--] = 0;
     }
+
+    return buf->cursor;
 
 }
 

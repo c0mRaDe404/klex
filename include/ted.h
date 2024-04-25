@@ -1,6 +1,8 @@
 #ifndef TED_H
 #define TED_H
 
+#include "buffer.h"
+
 #define KEY_ENTER '\n'
 #define KEY_INSERT 'i'
 #define KEY_Q 'q'
@@ -16,6 +18,13 @@ typedef enum
 	REPLACE
 } MODE;
 
+typedef struct 
+{
+    buffer** newline;
+    size_t linenumber;
+    size_t total_size;
+
+}Line;
 
 char* Mode();
 void EditorStart();
