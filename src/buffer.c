@@ -57,11 +57,15 @@ void shrink_buffer(buffer* buf)
 {
     if(gb_used(buf) < buf->size)
     {
+        
+        char* new_buf = buf->buffer;
 
-        char* new_buf = realloc(buf->buffer,gb_used(buf));
-        //move_string(buf,new_buf,gb_used(buf));
-    
-        memmove(new_buf+gb_used(buf)-gb_back(buf),buf->buffer+buf->gap_end,gb_back(buf));
+        if(gb_used(buf) > 0)
+        {
+            new_buf = realloc(buf->buffer,gb_used(buf));
+            move_string(buf,new_buf,gb_used(buf));
+        }
+        
         buf->buffer = new_buf;
         buf->size = gb_used(buf);
         buf->gap_end = buf->cursor = buf->size;
@@ -105,9 +109,10 @@ bool insert (buffer *buf, char c)
 {
   if (buf->cursor == buf->gap_end)
     { 
+        size_t new_size = (buf->size > 0) ? buf->size*2 : MIN_BUF_SIZE;
 
 
-      if (!grow_buffer (buf, buf->size*2))
+      if (!grow_buffer (buf, new_size*2))
         {
           return false;
         }

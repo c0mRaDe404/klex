@@ -20,14 +20,14 @@ typedef enum
 
 typedef struct 
 {
-    buffer** newline;
-    size_t linenumber;
+    buffer** line_ptr;
+    size_t total_lines;
     size_t total_size;
 
 }Line;
 
 char* Mode();
 void EditorStart();
-void NormalMode(int,int,int);
-
+void NormalMode(Line*,buffer*,int,int,int);
+void InsertMode(Line*,buffer*,int);
 #endif
