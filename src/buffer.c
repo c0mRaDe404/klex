@@ -1,3 +1,10 @@
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdbool.h>
+#include <ncurses.h>
+
 #include "../include/buffer.h"
 
 
@@ -18,7 +25,6 @@ buffer* allocate_buffer(size_t init_size)
       return NULL;
     }
 
-  buf->prev = buf->next = NULL;
   buf->size    = init_size;
   buf->cursor  = 0;
   buf->gap_end = init_size;
@@ -145,14 +151,14 @@ void cursor_right (buffer *buf)
 }
 
 
-int  delete (buffer *buf)
+void delete (buffer *buf)
 {
   if (buf->cursor > 0)
     {
       buf->buffer[buf->cursor--] = 0;
     }
 
-    return buf->cursor;
+    return;
 
 }
 

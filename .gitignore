@@ -1,5 +1,6 @@
 .vscode
 ./src/*.txt
 ./src/ted
-src/temp/
-src/sample
+./src/temp/
+./src/sample
+

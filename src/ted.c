@@ -1,239 +1,255 @@
-#include "../include/buffer.h"
-#include "../include/ted.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdbool.h>
 #include <ncurses.h>
 
-#define TAB_SPACE 8
-#define ENTER 10
-
-
-
+#include "../include/buffer.h"
+#include "../include/ted.h"
 
 MODE mode = NORMAL;
 
-
 char *Mode()
 {
-	switch (mode)
-	{
-	case NORMAL:
-		return "-- NORMAL --";
-		break;
+    switch (mode)
+    {
+    case NORMAL:
+        return "-- NORMAL --";
+        break;
 
-	case INSERT:
-		return "-- INSERT --";
-		break;
+    case INSERT:
+        return "-- INSERT --";
+        break;
 
-	default:
-		return "-- NORMAL --";
-		break;
-	}
+    default:
+        return "-- NORMAL --";
+        break;
+    }
 }
 
 void EditorStart()
 {
-	initscr();
-	raw();
-	noecho();
-	keypad(stdscr, TRUE);
-	set_escdelay(1);
-	mvwprintw(stdscr,getmaxy(stdscr)-1,0,"%s", Mode());
-	move(0,0);
-	refresh();
-
-
+    initscr();
+    raw();
+    noecho();
+    keypad(stdscr, TRUE);
+    set_escdelay(1);
+    mvwprintw(stdscr, getmaxy(stdscr) - 1, 0, "%s", Mode());
+    move(0, 0);
+    refresh();
 }
 
-
-void NormalMode(Line* line_buf,buffer* buf,int ch,int x,int y)
+void NormalMode(Line *line_buf, buffer *buf, int ch, int x, int y)
 {
-	noecho();
+    noecho();
 
     int maxy = getmaxy(stdscr);
-	mvwprintw(stdscr,maxy-1,0,"%s", Mode());
-	move(y,x);
-	refresh();
+    mvwprintw(stdscr, maxy - 1, 0, "%s", Mode());
+    move(y, x);
+    refresh();
 
-	if(ch == 'i')
-	{
-		mode = INSERT;
-		mvwprintw(stdscr,maxy-1,0,"%s", Mode());
-		move(0,0);
-		refresh();
-	}
-
-    if(ch == CTRL('s')) {
-        
-            FILE* file = fopen("sample","w");
-
-                            
-            for (int i = 0;i <= line_buf->total_lines-1;i++)
-            {                    
-                    shrink_buffer(line_buf->line_ptr[i]);
-                    fwrite(line_buf->line_ptr[i]->buffer,line_buf->line_ptr[i]->size,1,file);
-                   // printw("%s",line_buf->line_ptr[i]->buffer);
-                
-            }
-
-            fclose(file);
-                        
-    } 
-
-
-
-}
-
-
-
-
-void InsertMode(Line* line_buffer,buffer* buf,int ch)
-{
-
-    int maxy = getmaxy(stdscr);
-
-    if(ch == KEY_BACKSPACE || ch == 8) {
-
-        delete(buf);
-        wmove(stdscr,buf->line,buf->cursor);
-        delch();
-    } else if( ch == '\t')
+    if (ch == 'i')
     {
-        memset(buf->buffer+buf->cursor,' ',TAB_SPACE);
+        mode = INSERT;
+        mvwprintw(stdscr, maxy - 1, 0, "%s", Mode());
+        move(0, 0);
+        refresh();
+    }
+
+    if (ch == CTRL('s'))
+    {
+
+        FILE *file = fopen("sample", "w");
+        
+
+        for (int i = 0; i <= line_buf->total_lines - 1; i++)
+        {
+            shrink_buffer(line_buf->line_ptr[i]);
+            fwrite(line_buf->line_ptr[i]->buffer, line_buf->line_ptr[i]->size, 1, file);
+        
+        }
+
+        fclose(file);
+    }
+}
+
+#define ln_front(line_buf) ((line_buf)->cur_pos)                         
+#define ln_back(line_buf) ((line_buf)->total_size - (line_buf)->buf_end) 
+#define ln_used(line_buf) (ln_front(line_buf) + ln_back(line_buf))       
+
+void InsertMode(Line *line_buffer, buffer *buf, int ch, size_t *current_line)
+{
+
+    int maxy = getmaxy(stdscr);
+
+    if (ch == ENTER)
+    {
+
+
+        buffer *prev_buf = buf;
+        buffer *current_buffer = allocate_buffer(MIN_BUF_SIZE);
+
+        insert(buf, ch);
+
+        if (gb_back(line_buffer->line_ptr[*current_line]))
+        {
+
+            memmove(current_buffer->buffer, (prev_buf->buffer + prev_buf->gap_end), gb_back(prev_buf));
+            
+            insert_line(line_buffer, current_buffer, ++line_buffer->cur_pos);
+
+
+            if(line_buffer->line_ptr[++line_buffer->buf_end] != NULL)
+                    insert_line(line_buffer,line_buffer->line_ptr[line_buffer->buf_end],++line_buffer->cur_pos); 
+
+
+
+            current_buffer->cursor += gb_back(prev_buf);
+            prev_buf->gap_end += gb_back(prev_buf);
+            
+            buf = current_buffer;
+
+        }
+        else
+        {
+        
+            //next_line(line_buffer);
+            insert_line(line_buffer, current_buffer,++line_buffer->cur_pos);
+            buf = current_buffer;
+    
+        }
+
+        move(buf->line, buf->cursor);
+
+
+    }
+    else if (ch == KEY_BACKSPACE || ch == 8)
+    {
+
+        if (buf->cursor > 0)
+        {
+
+            delete (buf);
+            wmove(stdscr, *current_line, buf->cursor);
+            delch();
+        }
+        else
+        {
+            buf = (buf->line > 0) ? line_buffer->line_ptr[--(*current_line)] : buf;
+            delete (buf);
+            wmove(stdscr, buf->line, buf->cursor-1);
+        }
+    }
+    else if (ch == '\t')
+    {
+
+        memset(buf->buffer + buf->cursor, ' ', TAB_SPACE);
         buf->cursor += TAB_SPACE;
-        move(buf->line,buf->cursor);
+        move(buf->line, buf->cursor);
     }
 
-    else if(ch == KEY_ESC) {
-
-      noecho();
-      mode = NORMAL;
-      mvwprintw(stdscr,maxy-1,0,"%s", Mode());
-      move(0,0);
-
-    } else if (ch == KEY_LEFT) {
-    
-      cursor_left(line_buffer->line_ptr[buf->line]);
-      wmove(stdscr, getcury(stdscr), getcurx(stdscr) - 1);
-      wrefresh(stdscr);
-
-    } else if (ch == KEY_RIGHT) {
-    
-      cursor_right(line_buffer->line_ptr[buf->line]);
-      wmove(stdscr, getcury(stdscr), getcurx(stdscr) + 1);
-      wrefresh(stdscr);
-
-    } else if (ch == KEY_DOWN) {
-
-
-      buf->line = (buf->line < line_buffer->total_lines-1) ? ++buf->line : buf->line;
-
-      move(buf->line,line_buffer->line_ptr[buf->line]->cursor);
-      wrefresh(stdscr);
-
-    } else if (ch == KEY_UP) {
-        
-      buf->line = (buf->line > 0) ? --buf->line : buf->line;
-        
-      move(buf->line,line_buffer->line_ptr[buf->line]->cursor);
-      wrefresh(stdscr);
-
-    } else {
-
-      size_t cursor = line_buffer->line_ptr[buf->line]->cursor;
-      insert(line_buffer->line_ptr[buf->line], ch);
-      mvprintw(buf->line,cursor,"%c",line_buffer->line_ptr[buf->line]->buffer[cursor]);
-         
-
-    }
-
-    
-}
-
-
-Line* allocate_ptr(size_t size)
-{
-    const size_t min_len = 100;
-    size = (size > min_len) ? size : min_len;
-
-    Line* line = malloc(sizeof(Line));
-    line->line_ptr = calloc(size,sizeof(buffer*));
-    line->total_lines = 0;
-    line->total_size = size;
-    return line;
-
-}
-
-
-void insert_line(Line* line,buffer* buf,size_t line_no)
-{
-
-    
-    if(line_no > line->total_size)
+    else if (ch == KEY_ESC)
     {
-        line->total_size = line->total_size*2;
-        line->line_ptr = realloc(line->line_ptr,line->total_size*sizeof(buffer));
-    }
 
-    line->line_ptr[line_no] = buf;
-    line->line_ptr[line_no]->line = line_no;
-    line->total_lines = ++line_no;
+        noecho();
+        mode = NORMAL;
+        mvwprintw(stdscr, maxy - 1, 0, "%s", Mode());
+        move(0, 0);
+    }
+    else if (ch == KEY_LEFT)
+    {
+
+        cursor_left(buf);
+        wmove(stdscr, getcury(stdscr), getcurx(stdscr) - 1);
+        wrefresh(stdscr);
+    }
+    else if (ch == KEY_RIGHT)
+    {
+
+        cursor_right(buf);
+        wmove(stdscr, getcury(stdscr), getcurx(stdscr) + 1);
+        wrefresh(stdscr);
+    }
+    else if (ch == KEY_DOWN)
+    {
+        next_line(line_buffer);
+
+        buf = line_buffer->line_ptr[line_buffer->cur_pos];
+       
+
+        move(buf->line, buf->cursor);
+        wrefresh(stdscr);
+    }
+    else if (ch == KEY_UP)
+    {
+        prev_line(line_buffer);
+        buf = line_buffer->line_ptr[line_buffer->cur_pos];
+
+        move(buf->line, buf->cursor);
+        wrefresh(stdscr);
+    }
+    else
+    {
+
+        size_t cursor = buf->cursor;
+        insert(buf, ch);
+    }
 }
 
 
-int main()
+void ruler(size_t row, size_t col)
 {
-	int ch,cur_x = 0,cur_y = 0;
+    mvprintw(getmaxy(stdscr) - 1, getmaxx(stdscr) - 15, "%zu : %zu", col, row);
+    move(col, row);
+    wrefresh(stdscr);
+}
 
-	buffer* buf = allocate_buffer(MIN_BUF_SIZE);
-    Line* line_buffer = allocate_ptr(100);
+int main(void)
+{
+    int ch, cur_x = 0, cur_y = 0;
 
+    buffer *buf = allocate_buffer(MIN_BUF_SIZE);
+    Line *line_buffer = allocate_ptr(100);
 
-    size_t CurrentLine = 0;
-    
-    insert_line(line_buffer,buf,CurrentLine);
-    
-        
+    insert_line(line_buffer, buf, line_buffer->cur_pos);
 
     EditorStart();
 
 
-	while (ch != CTRL('q'))
-	{
+    while (ch != CTRL('q'))
+    {
 
-		ch = getch();
-		getyx(stdscr,cur_y,cur_x);
-
-		switch (mode)
-		{
-			case NORMAL:
-                NormalMode(line_buffer,buf,ch,cur_x,cur_y);
-				break;
-
-			case INSERT:
-                if(ch == ENTER)
-                {
-                    
-                        insert(line_buffer->line_ptr[CurrentLine],ch);
-                        buffer* current_buffer = allocate_buffer(MIN_BUF_SIZE);
-                        insert_line(line_buffer,current_buffer,++CurrentLine);               
-                        wmove(stdscr,line_buffer->line_ptr[CurrentLine]->line,line_buffer->line_ptr[CurrentLine]->cursor);
-                        
+        for (int i = 0; i < line_buffer->total_lines; i++)
+             for (int j = 0;j< line_buffer->line_ptr[i]->cursor;j++ )
+                    mvprintw(i, j, "%c",line_buffer->line_ptr[i]->buffer[j]);
 
 
-                } else InsertMode(line_buffer,line_buffer->line_ptr[CurrentLine],ch);
+        cur_x = line_buffer->line_ptr[line_buffer->cur_pos]->cursor;
+        cur_y = line_buffer->cur_pos;
 
 
-                break;
 
-            case REPLACE:
-                break;
-		}
+        move(cur_y,cur_x);
+        ruler(cur_x,cur_y);
 
-		
-	}
+        ch = getch();
 
-    
-   
-	refresh();
-	endwin();
-	return 0;
+        switch (mode)
+        {
+        case NORMAL:
+            NormalMode(line_buffer, buf, ch, cur_x, cur_y);
+            break;
+
+        case INSERT:
+            InsertMode(line_buffer, line_buffer->line_ptr[line_buffer->cur_pos], ch, &line_buffer->cur_pos);
+            break;
+
+        case REPLACE:
+            break;
+        }
+    }
+
+    refresh();
+    endwin();
+    return 0;
 }
