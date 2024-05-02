@@ -1,5 +1,5 @@
-#ifndef TED_H
-#define TED_H
+#ifndef KLEX_H
+#define KLEX_H
 
 #include <stddef.h>
 

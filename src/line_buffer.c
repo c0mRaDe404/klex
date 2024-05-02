@@ -5,7 +5,7 @@
 #include <ncurses.h>
 
 
-#include "../include/ted.h"
+#include "../include/klex.h"
 
 
 #define MIN_LINE_BUF_SIZE 100
@@ -127,7 +127,7 @@ void next_line(Line* line_buf)
 {
     
     if(line_buf->buf_end < line_buf->total_size) line_buf->line_ptr[++line_buf->cur_pos] = line_buf->line_ptr[++line_buf->buf_end];
-    //else line_buf->cur_pos++;
+    
 }
 
 

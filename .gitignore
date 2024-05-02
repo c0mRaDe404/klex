@@ -1,6 +1,4 @@
-.vscode
-./src/*.txt
-./src/ted
-./src/temp/
-./src/sample
+src/sample
+src/klex
+src/*.txt
 

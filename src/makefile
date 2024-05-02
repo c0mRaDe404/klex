@@ -1,14 +1,19 @@
-.PHONY := clean
+PHONY := clean
 
 CC := gcc
 SRC := ./
 SRCS := $(wildcard $(SRC)/*.c)
-CFLAGS := -I../include/  -g
+MISC := $(wildcard $(SRC)/*.o *.s *.i)
+
+BUILD_DIR := ../build
+CFLAGS := -I../include/ -g 
 
 
-TARGET := ted
+TARGET := klex
 
 $(TARGET): $(SRCS)
-	$(CC) $(CFLAGS) $^ -lcurses -o $@ 
+	$(CC) $(CFLAGS) $^ -lcurses -o $@
+	cp $(TARGET) $(BUILD_DIR)
+#	mv $(MISC) -t ../
 clean:
-	rm $(TARGET)
+	rm $(TARGET) $(MISC)

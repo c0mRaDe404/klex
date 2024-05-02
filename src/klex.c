@@ -5,7 +5,7 @@
 #include <ncurses.h>
 
 #include "../include/buffer.h"
-#include "../include/ted.h"
+#include "../include/klex.h"
 
 MODE mode = NORMAL;
 
@@ -59,7 +59,7 @@ void NormalMode(Line *line_buf, buffer *buf, int ch, int x, int y)
     if (ch == CTRL('s'))
     {
 
-        FILE *file = fopen("sample", "w");
+        FILE *file = fopen("out.txt", "w");
         
 
         for (int i = 0; i <= line_buf->total_lines - 1; i++)
@@ -89,21 +89,25 @@ void InsertMode(Line *line_buffer, buffer *buf, int ch, size_t *current_line)
         buffer *prev_buf = buf;
         buffer *current_buffer = allocate_buffer(MIN_BUF_SIZE);
 
+    
         insert(buf, ch);
 
         if (gb_back(line_buffer->line_ptr[*current_line]))
         {
 
-            memmove(current_buffer->buffer, (prev_buf->buffer + prev_buf->gap_end), gb_back(prev_buf));
-            
+
+            memmove(current_buffer->buffer, (prev_buf->buffer + prev_buf->gap_end), gb_back(prev_buf));           
             insert_line(line_buffer, current_buffer, ++line_buffer->cur_pos);
+            
 
+            size_t line_pos = line_buffer->cur_pos;
+            size_t line_end = line_buffer->buf_end;
 
-            if(line_buffer->line_ptr[++line_buffer->buf_end] != NULL)
-                    insert_line(line_buffer,line_buffer->line_ptr[line_buffer->buf_end],++line_buffer->cur_pos); 
-
-
-
+            for(int i = 0;i< ln_back(line_buffer);i++)
+            {
+                insert_line(line_buffer,line_buffer->line_ptr[++line_end],++line_pos);
+            }
+            
             current_buffer->cursor += gb_back(prev_buf);
             prev_buf->gap_end += gb_back(prev_buf);
             
@@ -112,14 +116,19 @@ void InsertMode(Line *line_buffer, buffer *buf, int ch, size_t *current_line)
         }
         else
         {
-        
-            //next_line(line_buffer);
+            size_t line = line_buffer->cur_pos;
+
+            if(!line_buffer->line_ptr[++line]) {
             insert_line(line_buffer, current_buffer,++line_buffer->cur_pos);
             buf = current_buffer;
+            }
+            else {
+                buf = line_buffer->line_ptr[++line_buffer->cur_pos];
+            }
     
         }
 
-        move(buf->line, buf->cursor);
+        move(buf->line,0);
 
 
     }
@@ -199,7 +208,7 @@ void InsertMode(Line *line_buffer, buffer *buf, int ch, size_t *current_line)
 
 void ruler(size_t row, size_t col)
 {
-    mvprintw(getmaxy(stdscr) - 1, getmaxx(stdscr) - 15, "%zu : %zu", col, row);
+    mvprintw(getmaxy(stdscr) - 1, getmaxx(stdscr) - 15, "%.3zu:%.3zu", col, row);
     move(col, row);
     wrefresh(stdscr);
 }
@@ -241,7 +250,9 @@ int main(void)
             break;
 
         case INSERT:
-            InsertMode(line_buffer, line_buffer->line_ptr[line_buffer->cur_pos], ch, &line_buffer->cur_pos);
+        {
+                InsertMode(line_buffer, line_buffer->line_ptr[line_buffer->cur_pos], ch, &line_buffer->cur_pos);
+        }
             break;
 
         case REPLACE:
