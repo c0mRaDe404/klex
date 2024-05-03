@@ -7,9 +7,9 @@ Dependecies : gcc,ncurses library
 
 ```sh
 
-cd src
-make
-./klex
+ cd path/to/klex/src
+ make
+ ./klex
 
 ```
 
