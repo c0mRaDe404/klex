@@ -56,6 +56,39 @@ void NormalMode(Line *line_buf, buffer *buf, int ch, int x, int y)
         refresh();
     }
 
+    else if (ch == KEY_LEFT || ch == 'h')
+    {
+
+        cursor_left(buf);
+        wmove(stdscr,buf->line, buf->cursor);
+        wrefresh(stdscr);
+    }
+    else if (ch == KEY_RIGHT || ch == 'l')
+    {
+
+        cursor_right(buf);
+        wmove(stdscr,buf->line, buf->cursor);
+        wrefresh(stdscr);
+    }
+    else if (ch == KEY_DOWN || ch == 'j')
+    {
+        next_line(line_buf);
+
+        buf = line_buf->line_ptr[line_buf->cur_pos];
+       
+
+        move(buf->line, buf->cursor);
+        wrefresh(stdscr);
+    }
+    else if (ch == KEY_UP || ch == 'k')
+    {
+        prev_line(line_buf);
+        buf = line_buf->line_ptr[line_buf->cur_pos];
+
+        move(buf->line, buf->cursor);
+        wrefresh(stdscr);
+    }
+
     if (ch == CTRL('s'))
     {
 
@@ -128,7 +161,7 @@ void InsertMode(Line *line_buffer, buffer *buf, int ch, size_t *current_line)
     
         }
 
-        move(buf->line,0);
+        move(buf->line,buf->cursor);
 
 
     }
@@ -169,14 +202,14 @@ void InsertMode(Line *line_buffer, buffer *buf, int ch, size_t *current_line)
     {
 
         cursor_left(buf);
-        wmove(stdscr, getcury(stdscr), getcurx(stdscr) - 1);
+        wmove(stdscr,buf->line, buf->cursor);
         wrefresh(stdscr);
     }
     else if (ch == KEY_RIGHT)
     {
 
         cursor_right(buf);
-        wmove(stdscr, getcury(stdscr), getcurx(stdscr) + 1);
+        wmove(stdscr,buf->line, buf->cursor);
         wrefresh(stdscr);
     }
     else if (ch == KEY_DOWN)
@@ -236,17 +269,16 @@ int main(void)
         cur_x = line_buffer->line_ptr[line_buffer->cur_pos]->cursor;
         cur_y = line_buffer->cur_pos;
 
-
-
-        move(cur_y,cur_x);
         ruler(cur_x,cur_y);
+        move(cur_y,cur_x);
+
 
         ch = getch();
 
         switch (mode)
         {
         case NORMAL:
-            NormalMode(line_buffer, buf, ch, cur_x, cur_y);
+            NormalMode(line_buffer,line_buffer->line_ptr[line_buffer->cur_pos], ch, cur_x, cur_y);
             break;
 
         case INSERT:
