@@ -12,7 +12,7 @@
 #include "./buffer.h"
 
 
-#define TAB_SPACE 8
+#define TAB_SPACE 4
 #define ENTER 10
 #define KEY_INSERT 'i'
 #define KEY_Q 'q'
@@ -45,7 +45,7 @@ typedef struct
 
 char* Mode(); //mode specifier
 void EditorStart(); // initalizes ncurses screen
-void NormalMode(Line*,buffer*,int,int,int); // Normal mode
+void NormalMode(char* file,Line*,buffer*,int,int,int); // Normal mode
 void InsertMode(Line*,buffer*,int,size_t*); //Insert mode
 
 

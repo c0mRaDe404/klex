@@ -136,4 +136,5 @@ void delete_line(Line* line_buf)
 {
     if(line_buf->cur_pos > 0) line_buf->line_ptr[line_buf->cur_pos--] = NULL;
 
+    line_buf->total_lines -= 1;
 }

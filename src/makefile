@@ -17,3 +17,4 @@ $(TARGET): $(SRCS)
 #	mv $(MISC) -t ../
 clean:
 	rm $(TARGET) $(MISC)
+	

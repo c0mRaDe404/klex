@@ -153,10 +153,11 @@ void cursor_right (buffer *buf)
 
 void delete (buffer *buf)
 {
-  if (buf->cursor > 0)
-    {
-      buf->buffer[buf->cursor--] = 0;
-    }
+  if (buf->cursor > 0) 
+  {
+        memmove(buf->buffer+(--buf->cursor),buf->buffer+buf->gap_end,gb_back(buf));
+        memset(buf->buffer+gb_used(buf),0,1);
+  }
 
     return;
 
