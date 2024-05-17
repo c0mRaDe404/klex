@@ -59,5 +59,6 @@ void shrink_line(Line*);
 void prev_line(Line*);
 void next_line(Line*);
 void delete_line(Line*);
-
+void shift_down(Line*,buffer*);
+void shift_up(Line*);
 #endif

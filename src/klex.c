@@ -7,8 +7,19 @@
 #include "../include/buffer.h"
 #include "../include/klex.h"
 
+#define CLEAR
+
 #define PRINT(ARG) mvprintw(10, 0, "%zu", (ARG))
 #define PRINT_STRING(ARG) mvprintw(11, 0, "%s", (ARG))
+
+
+#define ln_front(line_buf) ((line_buf)->cur_pos)
+#define ln_back(line_buf) (((line_buf)->total_lines - (line_buf)->cur_pos)-1)
+#define ln_used(line_buf) (ln_front(line_buf) + ln_back(line_buf))
+
+
+
+
 
 MODE mode = NORMAL;
 
@@ -46,19 +57,10 @@ void NormalMode(char *File, Line *line_buf, buffer *buf, int ch, int x, int y)
 {
     noecho();
 
-    //int maxy = getmaxy(stdscr);
-   // mvwprintw(stdscr, maxy - 1, 0, "%s", Mode());
-   // move(y, x);
-    //refresh();
-
     if (ch == 'i')
     {
         mode = INSERT;
-        //mvwprintw(stdscr, maxy - 1, 0, "%s", Mode());
-       // move(0, 0);
-       // refresh();
     }
-
     else if (ch == KEY_LEFT || ch == 'h')
     {
 
@@ -91,7 +93,34 @@ void NormalMode(char *File, Line *line_buf, buffer *buf, int ch, int x, int y)
         wrefresh(stdscr);
     }
 
-    if (ch == CTRL('s'))
+    else if(ch == 'd')
+    {
+        //#undef CLEAR
+    
+        size_t line_pos = line_buf->cur_pos;
+        size_t line_size = sizeof(buffer*)*ln_back(line_buf);
+        size_t total_lines = line_buf->total_lines;
+
+        if(line_pos >= 0)
+        {
+            memmove(line_buf->line_ptr+line_pos,line_buf->line_ptr+1+line_pos,line_size);
+            line_buf->total_lines--;
+        }
+        if(line_pos == total_lines-1) 
+        {
+            line_buf->cur_pos = (line_buf->cur_pos == 0) ? line_buf->cur_pos : line_buf->cur_pos--;
+
+        }
+
+
+    }
+    else if(ch == 'x')
+    {
+        memmove(buf->buffer+(buf->cursor--),buf->buffer+buf->gap_end,gb_back(buf));
+        buf->gap_end += 1;
+        
+    }
+    else if (ch == CTRL('s'))
     {
 
         FILE *file = fopen(File, "w");
@@ -110,9 +139,8 @@ void NormalMode(char *File, Line *line_buf, buffer *buf, int ch, int x, int y)
     }
 }
 
-#define ln_front(line_buf) ((line_buf)->cur_pos)
-#define ln_back(line_buf) ((line_buf)->total_size - (line_buf)->buf_end)
-#define ln_used(line_buf) (ln_front(line_buf) + ln_back(line_buf))
+
+
 
 void InsertMode(Line *line_buffer, buffer *buf, int ch, size_t *current_line)
 {
@@ -130,56 +158,23 @@ void InsertMode(Line *line_buffer, buffer *buf, int ch, size_t *current_line)
         {
 
             memmove(current_buffer->buffer, (prev_buf->buffer + prev_buf->gap_end), gb_back(prev_buf));
-            insert_line(line_buffer, current_buffer, ++line_buffer->cur_pos);
+            prev_buf->buffer[prev_buf->cursor] = 0;
 
-            size_t line_pos = line_buffer->cur_pos;
-            size_t line_end = line_buffer->buf_end;
+            shift_down(line_buffer,current_buffer);
 
-            for (int i = 0; i < ln_back(line_buffer); i++)
-            {
-                insert_line(line_buffer, line_buffer->line_ptr[++line_end], ++line_pos);
-            }
-
-            {
-                current_buffer->cursor += gb_back(prev_buf);
-                prev_buf->gap_end += gb_back(prev_buf);
-                buf = current_buffer;
-            }
+            current_buffer->cursor += gb_back(prev_buf);
+            prev_buf->gap_end += gb_back(prev_buf);
+            buf = current_buffer;  
         }
 
         else
         {
-            size_t line_num = line_buffer->cur_pos;
-            size_t line_end = line_buffer->buf_end;
-
-
-            if (!line_buffer->line_ptr[++line_buffer->cur_pos])
-            {
-                insert_line(line_buffer, current_buffer,line_buffer->cur_pos);
-                buf = current_buffer;
-            }
-            else
-            {
-                                              
-                for(int i = 0;i < ln_back(line_buffer);i++)
-                {
-                        line_buffer->line_ptr[line_num+2+i] = line_buffer->line_ptr[++line_end];
-                }
-
-                line_buffer->line_ptr[line_buffer->cur_pos] = current_buffer;
-                current_buffer->line = line_buffer->cur_pos;
-
-
-                clear();
-
-               
-                buf = current_buffer;
-                line_buffer->total_lines++;
-            
-            }
+        
+            shift_down(line_buffer,current_buffer);
+            buf = current_buffer;
+                 
         }
 
-        move(buf->line, buf->cursor);
     }
 
     else if (ch == KEY_BACKSPACE || ch == 8)
@@ -195,42 +190,31 @@ void InsertMode(Line *line_buffer, buffer *buf, int ch, size_t *current_line)
         else if ( buf->line > 0 && buf->cursor == 0)
         {
 
-            size_t line_num = line_buffer->cur_pos;
-            size_t line_end = line_buffer->buf_end;
+            size_t line_pos = line_buffer->cur_pos;
 
-
-            buffer *current_buffer = line_buffer->line_ptr[line_num];
-
-            buffer* prev_buffer = line_buffer->line_ptr[--line_num];
-
+            buffer *current_buffer = line_buffer->line_ptr[line_pos];
+            buffer* prev_buffer = line_buffer->line_ptr[--line_pos];
 
             memmove(prev_buffer->buffer + prev_buffer->cursor, current_buffer->buffer + current_buffer->gap_end, gb_used(current_buffer));
-            prev_buffer->cursor += gb_used(current_buffer);
-            delete_line(line_buffer);
+            prev_buffer->cursor += gb_used(current_buffer); 
 
-            for (int i = 0; i < ln_back(line_buffer); i++)
-                    line_buffer->line_ptr[++line_num] = line_buffer->line_ptr[++line_end];
-            
-            line_buffer->total_lines = line_num+1;
+            delete_line(line_buffer);
+            shift_up(line_buffer);
+
  
-            clear();
         }
     }
 
     else if (ch == '\t')
     {
-
         memset(buf->buffer+buf->cursor,' ',TAB_SPACE);
         buf->cursor += TAB_SPACE;
-        move(buf->line, buf->cursor);
     }
 
     else if (ch == KEY_ESC)
     {
-
         noecho();
         mode = NORMAL;
-        mvwprintw(stdscr, maxy - 1, 0, "%s", Mode());
         move(0, 0);
     }
 
@@ -238,24 +222,19 @@ void InsertMode(Line *line_buffer, buffer *buf, int ch, size_t *current_line)
     {
 
         cursor_left(buf);
-        wmove(stdscr, buf->line, buf->cursor);
-        wrefresh(stdscr);
+        
     }
 
     else if (ch == KEY_RIGHT)
     {
-
         cursor_right(buf);
-        wmove(stdscr, buf->line, buf->cursor);
-        wrefresh(stdscr);
     }
 
     else if (ch == KEY_DOWN)
     {
         next_line(line_buffer);
         buf = line_buffer->line_ptr[line_buffer->cur_pos];
-        move(buf->line, buf->cursor);
-        wrefresh(stdscr);
+    
     }
 
     else if (ch == KEY_UP)
@@ -272,7 +251,8 @@ void InsertMode(Line *line_buffer, buffer *buf, int ch, size_t *current_line)
         buf->line = line_buffer->cur_pos;
 
         if(!buf->buffer[buf->cursor]) insert(buf, ch);
-        else
+
+        else if (buf->cursor < buf->gap_end)
         {
             size_t b_cur = buf->cursor;
             size_t b_end = buf->gap_end;
@@ -280,10 +260,11 @@ void InsertMode(Line *line_buffer, buffer *buf, int ch, size_t *current_line)
             insert(buf,ch);
             clear();
 
-
         }
     }
 }
+
+
 
 void ruler(size_t row, size_t col)
 {
@@ -298,9 +279,7 @@ void load_file(char *file_name, Line *line_buf)
 
     if(!file)
     {
-        fprintf(stderr,"could not open file %s",file_name);
-        endwin();
-        exit(1);
+        return;
 
     }
     fseek(file,0,SEEK_END);
@@ -326,7 +305,7 @@ void load_file(char *file_name, Line *line_buf)
 
      
     line_buf->total_lines = line;
-    line_buf->cur_pos = line-1;
+    line_buf->cur_pos = 0;
 
     return;
 }
@@ -360,6 +339,11 @@ int main(int argc, char **argv)
 
     while (ch != CTRL('q'))
     {
+
+#ifdef CLEAR
+        clear();
+#endif
+
         refresh();
 
         for (int i = 0; i < line_buffer->total_lines; i++)
