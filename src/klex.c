@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <ctype.h>
 #include <ncurses.h>
 
 #include "../include/buffer.h"
@@ -16,8 +17,6 @@
 #define ln_front(line_buf) ((line_buf)->cur_pos)
 #define ln_back(line_buf) (((line_buf)->total_lines - (line_buf)->cur_pos)-1)
 #define ln_used(line_buf) (ln_front(line_buf) + ln_back(line_buf))
-
-
 
 
 
@@ -60,6 +59,8 @@ void NormalMode(char *File, Line *line_buf, buffer *buf, int ch, int x, int y)
     if (ch == 'i')
     {
         mode = INSERT;
+     for (int i = 0; i < line_buf->total_lines; i++) cursor_right(line_buf->line_ptr[i]);
+ 
     }
     else if (ch == KEY_LEFT || ch == 'h')
     {
@@ -93,32 +94,93 @@ void NormalMode(char *File, Line *line_buf, buffer *buf, int ch, int x, int y)
         wrefresh(stdscr);
     }
 
+    else if(ch == 'g') line_buf->cur_pos = 0;
+    else if(ch == 'G') line_buf->cur_pos = line_buf->total_lines-1;
+    else if(ch == '0') while(buf->cursor != 0) cursor_left(buf);
+    else if(ch == '$') while(buf->cursor != gb_used(buf)) cursor_right(buf);
+    else if(ch == 'w') //next word's beginning
+    {
+        char* buffer = buf->buffer;
+        if(isspace(buffer[buf->cursor])) cursor_right(buf);
+
+        while(!isspace(buffer[buf->cursor])) 
+        { 
+            if(buf->cursor == strlen(buffer)) break;
+            else cursor_right(buf);
+        }
+        cursor_right(buf);
+
+    }
+
+    else if(ch == 'b') // previous word's beginning
+    {
+        char* buffer = buf->buffer;
+        cursor_left(buf);
+        if(isspace(buffer[buf->cursor])) cursor_left(buf);
+
+        while(!isspace(buffer[buf->cursor])) 
+        { 
+            if(buf->cursor == 0) break;
+            else cursor_left(buf);
+        }
+        if(buf->cursor != 0) cursor_right(buf);
+    }
+    else if(ch == 'e') // word's end
+    {
+        char* buffer = buf->buffer;
+
+        cursor_right(buf);
+        if(isspace(buffer[buf->cursor])) cursor_right(buf);
+
+        while(!isspace(buffer[buf->cursor])) 
+        { 
+            if(buf->cursor == strlen(buffer)) break;
+            else cursor_right(buf);
+        }
+        cursor_left(buf);
+    }
+
+        
+
     else if(ch == 'd')
     {
         //#undef CLEAR
-    
         size_t line_pos = line_buf->cur_pos;
-        size_t line_size = sizeof(buffer*)*ln_back(line_buf);
         size_t total_lines = line_buf->total_lines;
 
         if(line_pos >= 0)
         {
-            memmove(line_buf->line_ptr+line_pos,line_buf->line_ptr+1+line_pos,line_size);
-            line_buf->total_lines--;
+            if(line_pos == 0 && ln_back(line_buf) == 0) 
+            {
+                memset(line_buf->line_ptr[line_pos]->buffer,0,line_buf->line_ptr[line_pos]->size);
+                line_buf->line_ptr[line_pos]->cursor = 0;
+            }
+            
+        memmove(line_buf->line_ptr+line_pos,line_buf->line_ptr+1+line_pos,sizeof(buffer*)*ln_back(line_buf));
+        for(int i = 0;i< total_lines;i++) line_buf->line_ptr[i]->line = i;
+        line_buf->total_lines = (line_pos == 0 && ln_back(line_buf) == 0) ? total_lines : total_lines-1;
+             
+
         }
         if(line_pos == total_lines-1) 
         {
-            line_buf->cur_pos = (line_buf->cur_pos == 0) ? line_buf->cur_pos : line_buf->cur_pos--;
+            line_buf->cur_pos = (line_pos == 0) ? line_pos : line_pos-1;
 
         }
-
 
     }
     else if(ch == 'x')
     {
-        memmove(buf->buffer+(buf->cursor--),buf->buffer+buf->gap_end,gb_back(buf));
-        buf->gap_end += 1;
-        
+        if(!gb_used(buf)) NormalMode(File,line_buf,buf,'d',x,y);
+    
+        if(gb_back(buf) >= 0) 
+        {
+            
+                memmove(buf->buffer+(buf->cursor),buf->buffer+1+buf->cursor,gb_back(buf));
+                buf->gap_end += (buf->gap_end < buf->size) ? 1 : 0;
+                if(!gb_back(buf)) cursor_left(buf);
+        }
+               
     }
     else if (ch == CTRL('s'))
     {
@@ -127,17 +189,19 @@ void NormalMode(char *File, Line *line_buf, buffer *buf, int ch, int x, int y)
 
         for (int i = 0; i <= line_buf->total_lines - 1; i++)
         {
+            buffer* Buffer = line_buf->line_ptr[i];
             size_t cur_x = line_buf->line_ptr[i]->cursor;
-            line_buf->line_ptr[i]->buffer[cur_x] = '\n';
-
-            shrink_buffer(line_buf->line_ptr[i]);
-            fwrite(line_buf->line_ptr[i]->buffer, gb_used(line_buf->line_ptr[i])+1, 1, file);
+            size_t len = strlen(Buffer->buffer);
+            Buffer->buffer[len] = '\n';
+            shrink_buffer(Buffer);
+            fwrite(Buffer->buffer,len+1, 1, file);
         
         }
 
         fclose(file);
     }
 }
+
 
 
 
@@ -158,7 +222,8 @@ void InsertMode(Line *line_buffer, buffer *buf, int ch, size_t *current_line)
         {
 
             memmove(current_buffer->buffer, (prev_buf->buffer + prev_buf->gap_end), gb_back(prev_buf));
-            prev_buf->buffer[prev_buf->cursor] = 0;
+            
+            memset(prev_buf->buffer+prev_buf->cursor,0,gb_back(prev_buf));
 
             shift_down(line_buffer,current_buffer);
 
@@ -174,6 +239,7 @@ void InsertMode(Line *line_buffer, buffer *buf, int ch, size_t *current_line)
             buf = current_buffer;
                  
         }
+        while(buf->cursor) cursor_left(buf);
 
     }
 
@@ -215,6 +281,7 @@ void InsertMode(Line *line_buffer, buffer *buf, int ch, size_t *current_line)
     {
         noecho();
         mode = NORMAL;
+        for (int i = 0; i < line_buffer->total_lines; i++) cursor_left(line_buffer->line_ptr[i]);
         move(0, 0);
     }
 
@@ -248,8 +315,11 @@ void InsertMode(Line *line_buffer, buffer *buf, int ch, size_t *current_line)
 
     else
     {
+
+        size_t cursor = buf->cursor;
         buf->line = line_buffer->cur_pos;
 
+        
         if(!buf->buffer[buf->cursor]) insert(buf, ch);
 
         else if (buf->cursor < buf->gap_end)
@@ -271,6 +341,8 @@ void ruler(size_t row, size_t col)
     mvprintw(getmaxy(stdscr) - 1, getmaxx(stdscr) - 15, "%.3zu:%.3zu", col, row);
     wrefresh(stdscr);
 }
+
+
 
 void load_file(char *file_name, Line *line_buf)
 {
@@ -303,7 +375,8 @@ void load_file(char *file_name, Line *line_buf)
 
     }
 
-     
+    for (int i = 0; i < line; i++) cursor_left(line_buf->line_ptr[i]);
+ 
     line_buf->total_lines = line;
     line_buf->cur_pos = 0;
 
@@ -332,10 +405,9 @@ int main(int argc, char **argv)
 
     EditorStart();
 
-     int maxy = getmaxy(stdscr);
+    int maxy = getmaxy(stdscr);
 
 
-    
 
     while (ch != CTRL('q'))
     {
@@ -363,6 +435,7 @@ int main(int argc, char **argv)
         switch (mode)
         {
         case NORMAL:
+            
             NormalMode(argv[1], line_buffer, line_buffer->line_ptr[line_buffer->cur_pos], ch, cur_x, cur_y);
             break;
 

@@ -19,6 +19,7 @@
 #define KEY_ESC 27
 #define BUFFER 1024
 #define CTRL(x) ((x) & 0x1f)
+#define BRACE_CAP 1024
 
 typedef enum
 {
@@ -26,8 +27,6 @@ typedef enum
 	INSERT,
 	REPLACE
 } MODE;
-
-
 
 
 

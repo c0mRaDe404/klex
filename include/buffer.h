@@ -18,7 +18,7 @@
 #define gb_used(buf)  (gb_front (buf) + gb_back (buf)) //totoal no of character in buffer
 
 
-typedef struct Buffer
+typedef struct
 {
     char* buffer; //buffer to hold string
     size_t gap_end; //end of the gap
