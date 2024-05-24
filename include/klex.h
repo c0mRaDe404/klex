@@ -19,7 +19,7 @@
 #define KEY_ESC 27
 #define BUFFER 1024
 #define CTRL(x) ((x) & 0x1f)
-#define BRACE_CAP 1024
+#define BRACE_CAP 128
 
 typedef enum
 {
@@ -28,6 +28,17 @@ typedef enum
 	REPLACE
 } MODE;
 
+
+typedef enum
+{
+    BRACE_NONE,
+    BRACE_OPEN_CURLY,
+    BRACE_CLOSE_CURLY,
+    BRACE_OPEN_ROUND,
+    BRACE_CLOSE_ROUND,
+    BRACE_OPEN_SQUARE,
+    BRACE_CLOSE_SQUARE
+}BraceType;
 
 
 typedef struct 
@@ -46,7 +57,8 @@ char* Mode(); //mode specifier
 void EditorStart(); // initalizes ncurses screen
 void NormalMode(char* file,Line*,buffer*,int,int,int); // Normal mode
 void InsertMode(Line*,buffer*,int,size_t*); //Insert mode
-
+void ruler(WINDOW*,size_t,size_t);
+void load_file(char*,Line*);
 
 
 Line* allocate_ptr(size_t); // allocates the line buffer for the given size

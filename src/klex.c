@@ -24,6 +24,7 @@ MODE mode = NORMAL;
 
 char *Mode()
 {
+
     switch (mode)
     {
     case NORMAL:
@@ -47,10 +48,27 @@ void EditorStart()
     noecho();
     keypad(stdscr, TRUE);
     set_escdelay(1);
-    mvwprintw(stdscr, getmaxy(stdscr) - 1, 0, "%s", Mode());
     move(0, 0);
     refresh();
 }
+
+
+
+BraceType get_brace_type(char ch)
+{
+    switch(ch)
+    {
+        case '{': return BRACE_OPEN_CURLY;
+        case '}': return BRACE_CLOSE_CURLY;
+        case '(': return BRACE_OPEN_ROUND;
+        case ')': return BRACE_CLOSE_ROUND;
+        case '[': return BRACE_OPEN_SQUARE;
+        case ']': return BRACE_CLOSE_SQUARE;
+        default : return BRACE_NONE;
+    }
+}
+
+
 
 void NormalMode(char *File, Line *line_buf, buffer *buf, int ch, int x, int y)
 {
@@ -59,7 +77,7 @@ void NormalMode(char *File, Line *line_buf, buffer *buf, int ch, int x, int y)
     if (ch == 'i')
     {
         mode = INSERT;
-     for (int i = 0; i < line_buf->total_lines; i++) cursor_right(line_buf->line_ptr[i]);
+        for (int i = 0; i < line_buf->total_lines; i++) cursor_right(line_buf->line_ptr[i]);
  
     }
     else if (ch == KEY_LEFT || ch == 'h')
@@ -162,6 +180,8 @@ void NormalMode(char *File, Line *line_buf, buffer *buf, int ch, int x, int y)
              
 
         }
+
+
         if(line_pos == total_lines-1) 
         {
             line_buf->cur_pos = (line_pos == 0) ? line_pos : line_pos-1;
@@ -181,6 +201,13 @@ void NormalMode(char *File, Line *line_buf, buffer *buf, int ch, int x, int y)
                 if(!gb_back(buf)) cursor_left(buf);
         }
                
+    }
+
+    else if(ch == '%')
+    {
+            return;
+        
+
     }
     else if (ch == CTRL('s'))
     {
@@ -309,7 +336,6 @@ void InsertMode(Line *line_buffer, buffer *buf, int ch, size_t *current_line)
         size_t cursor = buf->line;
         prev_line(line_buffer);
         buf = line_buffer->line_ptr[line_buffer->cur_pos];
-        move(buf->line, buf->cursor);
         wrefresh(stdscr);
     }
 
@@ -319,7 +345,6 @@ void InsertMode(Line *line_buffer, buffer *buf, int ch, size_t *current_line)
         size_t cursor = buf->cursor;
         buf->line = line_buffer->cur_pos;
 
-        
         if(!buf->buffer[buf->cursor]) insert(buf, ch);
 
         else if (buf->cursor < buf->gap_end)
@@ -336,24 +361,14 @@ void InsertMode(Line *line_buffer, buffer *buf, int ch, size_t *current_line)
 
 
 
-void ruler(size_t row, size_t col)
-{
-    mvprintw(getmaxy(stdscr) - 1, getmaxx(stdscr) - 15, "%.3zu:%.3zu", col, row);
-    wrefresh(stdscr);
-}
-
-
-
 void load_file(char *file_name, Line *line_buf)
 {
 
     FILE *file = fopen(file_name, "rw");
 
-    if(!file)
-    {
-        return;
+    if(!file) return;
 
-    }
+
     fseek(file,0,SEEK_END);
     size_t length = ftell(file);
     fseek(file,0,SEEK_SET);
@@ -384,53 +399,67 @@ void load_file(char *file_name, Line *line_buf)
 }
 
 
+
+
+void ruler(WINDOW* screen,size_t row, size_t col)
+{
+    mvwprintw(screen,0, getmaxx(screen) - 15, "%.3zu:%.3zu", col, row);
+    mvwprintw(screen,0, 0, "%s", Mode());
+    wrefresh(screen);
+}
+
+
+
+
+
 int main(int argc, char **argv)
 {
 
-    int ch, cur_x = 0, cur_y = 0;
+    EditorStart();
 
+
+    int row,col;
+    getmaxyx(stdscr,col,row);
+    WINDOW* main_win = newwin(col*0.96,row,0,0);
+    WINDOW* status_bar = newwin(col*0.05,row,col-2,0);
+    keypad(main_win,TRUE);
+    wrefresh(main_win);
+    wrefresh(status_bar);
+
+
+    int ch, cur_x = 0, cur_y = 0;
     buffer *buf = allocate_buffer(MIN_BUF_SIZE);
     Line *line_buffer = allocate_ptr(100);
     insert_line(line_buffer, buf, line_buffer->cur_pos);
 
-    if (argc < 2)
-    {
+
+
+
+    if (argc < 2) 
         argv[1] = "untitled";
-    }
-    else
-    {
+    else 
         load_file(argv[1], line_buffer);
 
-    }
-
-    EditorStart();
-
-    int maxy = getmaxy(stdscr);
-
-
-
+    
     while (ch != CTRL('q'))
     {
-
-#ifdef CLEAR
-        clear();
-#endif
-
-        refresh();
-
-        for (int i = 0; i < line_buffer->total_lines; i++)
-            mvwprintw(stdscr,i, 0, "%s", line_buffer->line_ptr[i]->buffer);
 
         cur_x = line_buffer->line_ptr[line_buffer->cur_pos]->cursor;
         cur_y = line_buffer->cur_pos;
 
-    
-        mvwprintw(stdscr, maxy - 1, 0, "%s", Mode());
+        #ifdef CLEAR
+        wclear(main_win);
+        #endif
 
-        ruler(cur_x, cur_y);
-        move(cur_y, cur_x);
+        for (int i = 0; i < line_buffer->total_lines; i++)
+            mvwprintw(main_win,i, 0, "%s", line_buffer->line_ptr[i]->buffer);
 
-        ch = getch();
+            
+
+        ruler(status_bar,cur_x, cur_y);
+        wmove(main_win,cur_y, cur_x);
+
+        ch = wgetch(main_win);
 
         switch (mode)
         {
