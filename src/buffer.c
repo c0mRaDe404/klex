@@ -55,8 +55,6 @@ void move_string (buffer* buf, char *new_buf, size_t new_size)
 {
   memmove (new_buf + new_size - gb_back (buf),buf->buffer + buf->gap_end,gb_back (buf)); 
     
-//memset(new_buf+buf->cursor,0,buf->size-gb_used(buf));
-
 }
 
 void shrink_buffer(buffer* buf)
