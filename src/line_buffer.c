@@ -117,7 +117,7 @@ void shrink_line(Line* line_buf)
 void prev_line(Line* line_buf)
 {
     
-    if(line_buf->cur_pos > 0) line_buf->cur_pos--;
+    if(line_buf->cur_pos > 0) --line_buf->cur_pos;
 }
 
 void next_line(Line* line_buf)

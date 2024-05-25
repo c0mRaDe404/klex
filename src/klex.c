@@ -439,30 +439,6 @@ void ruler(WINDOW* status_bar,WINDOW* line_bar,size_t row, size_t col)
 }
 
 
-void display_line(WINDOW* main_win,Line* line_buf,size_t x,size_t y,size_t* offset)
-{
-    #ifdef CLEAR
-    wclear(main_win);
-    #endif
-
-    
-    for (int i = 0; i < line_buf->total_lines; i++)
-    {
-        if(line_buf->cur_pos == getmaxy(main_win))
-        {
-            *offset = getmaxy(main_win)-1;
-            i = i%getmaxy(main_win);
-
-            wclear(main_win);
-        }
-
-        mvwprintw(main_win,i, 0, "%s", line_buf->line_ptr[i+(*offset)]->buffer);
-    }
-
-     wmove(main_win,y%getmaxy(main_win), x);
-
-}
-
 
 void handle_mode(char* file_name,Line* line_buf,int ch,size_t x,size_t y)
 
@@ -482,13 +458,9 @@ void handle_mode(char* file_name,Line* line_buf,int ch,size_t x,size_t y)
         case REPLACE:
             break;
 
-
     }
 
-
 }
-
-
 
 
 int main(int argc, char **argv)
@@ -498,16 +470,19 @@ int main(int argc, char **argv)
 
 
     int row,col;
-    getmaxyx(stdscr,col,row);
-    WINDOW* main_win = newwin(col*0.96,row,0,4);
-    WINDOW* status_bar = newwin(col*0.05,row,col-2,0);
-    WINDOW* line_bar = newwin(col-2,4,0,0);
+
+    getmaxyx(stdscr,row,col);
+    WINDOW* main_win = newwin(row*0.96,col,0,4);
+    WINDOW* status_bar = newwin(row*0.05,col,row-2,0);
+    WINDOW* line_bar = newwin(row-2,4,0,0);
     keypad(main_win,TRUE);
+    getmaxyx(main_win,row,col);
     wrefresh(line_bar);
     wrefresh(main_win);
     wrefresh(status_bar);
 
 
+    size_t row_off = 0;
     int ch,x = 0,y = 0;
     size_t offset = 0;
     buffer *buf = allocate_buffer(MIN_BUF_SIZE);
@@ -529,10 +504,23 @@ int main(int argc, char **argv)
         x = line_buf->line_ptr[line_buf->cur_pos]->cursor;
         y = line_buf->cur_pos;
 
-       
-        display_line(main_win,line_buf,x,y,&offset);
+        #ifdef CLEAR
+        //wclear(main_win);
+        #endif
+
+        if(line_buf->cur_pos > row_off+row) row_off = line_buf->cur_pos-row;
+        if(line_buf->cur_pos < row_off) row_off -= 1;
+        for (int i = row_off; i < line_buf->total_lines; i++)
+        {
+            size_t offset = i-row_off;
+            mvwprintw(main_win,offset, 0, "%s", line_buf->line_ptr[i]->buffer);
+ 
+        }
+
+
         ruler(status_bar,line_bar,x,y);
-       
+        wmove(main_win,y,x);
+
         ch = wgetch(main_win);
         handle_mode(argv[1],line_buf,ch,x,y);
 

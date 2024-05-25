@@ -60,7 +60,7 @@ void InsertMode(Line*,buffer*,int,size_t*); //Insert mode
 void ruler(WINDOW*,WINDOW*,size_t,size_t);
 void load_file(char*,Line*);
 void save_file(char*,Line*);
-void display_line(WINDOW*,Line*,size_t,size_t,size_t*);
+void render_line(WINDOW*,Line*,size_t*,size_t*,size_t*);
 void handle_mode(char*,Line*,int,size_t,size_t);
 int find_brace(Line*,BraceType,size_t);
 
