@@ -180,13 +180,51 @@ void NormalMode(char *File, Line *line_buf, buffer *buf, int ch, int x, int y)
 
     else if(ch == '%')
     {
-            return;
-
+            BraceType brace = get_brace_type(buf->buffer[buf->cursor]);
+            size_t pos = find_brace(line_buf,brace,line_buf->cur_pos);
+            while(pos != buf->cursor)
+            {
+                if(buf->cursor > pos) cursor_left(buf);
+                else cursor_right(buf);
+            }
+               
     }
     else if (ch == CTRL('s'))
     {
             save_file(File,line_buf);
     }
+}
+
+
+BraceType find_pair_brace(BraceType brace)
+{
+    switch(brace)
+    {
+        case BRACE_OPEN_CURLY:
+            return BRACE_CLOSE_CURLY;
+
+        case BRACE_OPEN_ROUND:
+            return BRACE_CLOSE_ROUND;
+
+        case BRACE_OPEN_SQUARE:
+            return BRACE_CLOSE_SQUARE;
+        default:
+            return BRACE_NONE;
+
+    }
+}
+
+int find_brace(Line* line_buf,BraceType brace,size_t line)
+{
+
+    buffer* buf = line_buf->line_ptr[line]; 
+    BraceType pair_brace = find_pair_brace(brace);
+
+    for(size_t cursor=0;cursor<gb_used(buf);cursor++)
+    {
+        if(get_brace_type(buf->buffer[cursor]) == pair_brace) return cursor;  
+    }
+    return find_brace(line_buf,brace,++line_buf->cur_pos);
 }
 
 
@@ -401,18 +439,27 @@ void ruler(WINDOW* status_bar,WINDOW* line_bar,size_t row, size_t col)
 }
 
 
-void display_line(WINDOW* main_win,Line* line_buf,size_t x,size_t y)
+void display_line(WINDOW* main_win,Line* line_buf,size_t x,size_t y,size_t* offset)
 {
     #ifdef CLEAR
     wclear(main_win);
     #endif
 
+    
     for (int i = 0; i < line_buf->total_lines; i++)
     {
-        mvwprintw(main_win,i, 0, "%s", line_buf->line_ptr[i]->buffer);
+        if(line_buf->cur_pos == getmaxy(main_win))
+        {
+            *offset = getmaxy(main_win)-1;
+            i = i%getmaxy(main_win);
+
+            wclear(main_win);
+        }
+
+        mvwprintw(main_win,i, 0, "%s", line_buf->line_ptr[i+(*offset)]->buffer);
     }
 
-     wmove(main_win,y, x);
+     wmove(main_win,y%getmaxy(main_win), x);
 
 }
 
@@ -462,6 +509,7 @@ int main(int argc, char **argv)
 
 
     int ch,x = 0,y = 0;
+    size_t offset = 0;
     buffer *buf = allocate_buffer(MIN_BUF_SIZE);
     Line *line_buf = allocate_ptr(100);
     insert_line(line_buf, buf, line_buf->cur_pos);
@@ -482,7 +530,7 @@ int main(int argc, char **argv)
         y = line_buf->cur_pos;
 
        
-        display_line(main_win,line_buf,x,y);
+        display_line(main_win,line_buf,x,y,&offset);
         ruler(status_bar,line_bar,x,y);
        
         ch = wgetch(main_win);
