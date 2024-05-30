@@ -10,7 +10,7 @@
 
 #include <stddef.h>
 
-#define MIN_BUF_SIZE 1024 
+#define MIN_BUF_SIZE 256 
 #define SIZE(x,y) ((x)>(y) ? (x):(y))
 
 #define gb_front(buf) ((buf)->cursor)  //no of characters before the cursor 

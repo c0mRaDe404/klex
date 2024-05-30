@@ -27,17 +27,23 @@ char *Mode()
 
     switch (mode)
     {
-    case NORMAL:
-        return "-- NORMAL --";
-        break;
+        case NORMAL:
+            return "-- NORMAL --";
 
-    case INSERT:
-        return "-- INSERT --";
-        break;
+        case INSERT:
+            return "-- INSERT --";
 
-    default:
-        return "-- NORMAL --";
-        break;
+        case REPLACE:
+            return "-- REPLACE --";
+
+        case VISUAL:
+            return "-- VISUAL --";
+
+        case COMMAND:
+            return "-- COMMAND --";
+
+        default:
+            return "-- NORMAL --";
     }
 }
 
@@ -54,23 +60,98 @@ void EditorStart()
 
 
 
-BraceType get_brace_type(char ch)
+Brace get_brace_type(char ch)
 {
     switch(ch)
     {
-        case '{': return BRACE_OPEN_CURLY;
-        case '}': return BRACE_CLOSE_CURLY;
-        case '(': return BRACE_OPEN_ROUND;
-        case ')': return BRACE_CLOSE_ROUND;
-        case '[': return BRACE_OPEN_SQUARE;
-        case ']': return BRACE_CLOSE_SQUARE;
-        default : return BRACE_NONE;
+        case '{': 
+            return (Brace) {.Brace = BRACE_OPEN_CURLY,.Closing = false};
+        case '}': 
+            return (Brace) {.Brace = BRACE_CLOSE_CURLY,.Closing = true};
+        case '(':  
+            return (Brace) {.Brace = BRACE_OPEN_ROUND,.Closing = false};
+        case ')': 
+             return (Brace) {.Brace = BRACE_CLOSE_ROUND,.Closing = true};
+        case '[': 
+             return (Brace) {.Brace = BRACE_OPEN_SQUARE,.Closing = false};
+        case ']': 
+             return (Brace) {.Brace = BRACE_CLOSE_SQUARE,.Closing = true};
+        default:
+             return (Brace) {.Brace = BRACE_NONE,.Closing = false};
     }
 }
 
 
 
-void NormalMode(char *File, Line *line_buf, buffer *buf, int ch, int x, int y)
+Brace find_pair_brace(Brace brace)
+{
+    switch(brace.Brace)
+    {
+        case BRACE_OPEN_CURLY:
+            return (Brace) {.Brace = BRACE_CLOSE_CURLY,.Closing = true};
+
+        case BRACE_OPEN_ROUND:
+            return (Brace) {.Brace = BRACE_CLOSE_ROUND,.Closing = true};
+
+        case BRACE_OPEN_SQUARE: 
+            return (Brace) {.Brace = BRACE_CLOSE_SQUARE,.Closing = true};
+        case BRACE_CLOSE_CURLY:
+            return (Brace) {.Brace = BRACE_OPEN_CURLY,.Closing = false};
+
+        case BRACE_CLOSE_ROUND:
+            return (Brace) {.Brace = BRACE_OPEN_ROUND,.Closing = false};
+
+        case BRACE_CLOSE_SQUARE: 
+            return (Brace) {.Brace = BRACE_OPEN_SQUARE,.Closing = false};
+
+        default: 
+            return (Brace) {.Brace = BRACE_NONE,.Closing = false};
+
+    }
+}
+
+int find_brace(Line* line_buf,Brace brace,size_t line)
+{
+
+    buffer* buf = line_buf->line_ptr[line]; 
+    Brace pair_brace = find_pair_brace(brace);
+
+    for(size_t cursor = 0;cursor<gb_used(buf);cursor++)
+    {
+        line_buf->cur_pos = line;
+        if(get_brace_type(buf->buffer[cursor]).Brace == pair_brace.Brace) return cursor;  
+    }
+    if(brace.Closing) return find_brace(line_buf,brace,--line);
+    else return find_brace(line_buf,brace,++line);
+}
+
+
+
+
+
+void save_file(Line* line_buf)
+{
+        FILE *file = fopen(line_buf->file_name, "w");
+
+        for (int i = 0; i <= line_buf->total_lines - 1; i++)
+        {
+            buffer* Buffer = line_buf->line_ptr[i];
+            size_t cur_x = line_buf->line_ptr[i]->cursor;
+            size_t len = strlen(Buffer->buffer);
+            Buffer->buffer[len] = '\n';
+            shrink_buffer(Buffer);
+            fwrite(Buffer->buffer,len+1, 1, file);
+        
+        }
+
+        fclose(file);
+}
+
+
+
+
+
+void NormalMode(WINDOW* status_bar,Line *line_buf, buffer *buf, int ch, int x, int y)
 {
     noecho();
 
@@ -79,6 +160,11 @@ void NormalMode(char *File, Line *line_buf, buffer *buf, int ch, int x, int y)
         mode = INSERT;
         for (int i = 0; i < line_buf->total_lines; i++) if(buf->cursor != 0) cursor_right(line_buf->line_ptr[i]);
  
+    }
+    else if(ch == ':')
+    {
+        mvwprintw(status_bar,1,0,":");
+        mode = COMMAND;
     }
     else if (ch == KEY_LEFT || ch == 'h')
     {
@@ -166,7 +252,7 @@ void NormalMode(char *File, Line *line_buf, buffer *buf, int ch, int x, int y)
     }
     else if(ch == 'x')
     {
-        if(!gb_used(buf)) NormalMode(File,line_buf,buf,'d',x,y);
+        if(!gb_used(buf)) NormalMode(status_bar,line_buf,buf,'d',x,y);
     
         if(gb_back(buf) >= 0) 
         {
@@ -180,8 +266,11 @@ void NormalMode(char *File, Line *line_buf, buffer *buf, int ch, int x, int y)
 
     else if(ch == '%')
     {
-            BraceType brace = get_brace_type(buf->buffer[buf->cursor]);
+            Brace brace = get_brace_type(buf->buffer[buf->cursor]);
             size_t pos = find_brace(line_buf,brace,line_buf->cur_pos);
+            
+            buf = line_buf->line_ptr[line_buf->cur_pos];
+
             while(pos != buf->cursor)
             {
                 if(buf->cursor > pos) cursor_left(buf);
@@ -189,62 +278,17 @@ void NormalMode(char *File, Line *line_buf, buffer *buf, int ch, int x, int y)
             }
                
     }
+
+        
+    else if(ch == CTRL('d')) line_buf->cur_pos += (line_buf->cur_pos == line_buf->total_lines-JMP_LEN-1)? line_buf->total_lines-line_buf->cur_pos : JMP_LEN ;
+            
+    
     else if (ch == CTRL('s'))
     {
-            save_file(File,line_buf);
+            save_file(line_buf);
     }
 }
 
-
-BraceType find_pair_brace(BraceType brace)
-{
-    switch(brace)
-    {
-        case BRACE_OPEN_CURLY:
-            return BRACE_CLOSE_CURLY;
-
-        case BRACE_OPEN_ROUND:
-            return BRACE_CLOSE_ROUND;
-
-        case BRACE_OPEN_SQUARE:
-            return BRACE_CLOSE_SQUARE;
-        default:
-            return BRACE_NONE;
-
-    }
-}
-
-int find_brace(Line* line_buf,BraceType brace,size_t line)
-{
-
-    buffer* buf = line_buf->line_ptr[line]; 
-    BraceType pair_brace = find_pair_brace(brace);
-
-    for(size_t cursor=0;cursor<gb_used(buf);cursor++)
-    {
-        if(get_brace_type(buf->buffer[cursor]) == pair_brace) return cursor;  
-    }
-    return find_brace(line_buf,brace,++line_buf->cur_pos);
-}
-
-
-void save_file(char* file_name,Line* line_buf)
-{
-        FILE *file = fopen(file_name, "w");
-
-        for (int i = 0; i <= line_buf->total_lines - 1; i++)
-        {
-            buffer* Buffer = line_buf->line_ptr[i];
-            size_t cur_x = line_buf->line_ptr[i]->cursor;
-            size_t len = strlen(Buffer->buffer);
-            Buffer->buffer[len] = '\n';
-            shrink_buffer(Buffer);
-            fwrite(Buffer->buffer,len+1, 1, file);
-        
-        }
-
-        fclose(file);
-}
 
 
 void InsertMode(Line *line_buffer, buffer *buf, int ch, size_t *current_line)
@@ -263,7 +307,6 @@ void InsertMode(Line *line_buffer, buffer *buf, int ch, size_t *current_line)
         {
 
             memmove(current_buffer->buffer, (prev_buf->buffer + prev_buf->gap_end), gb_back(prev_buf));
-            
             memset(prev_buf->buffer+prev_buf->cursor,0,gb_back(prev_buf));
 
             shift_down(line_buffer,current_buffer);
@@ -349,19 +392,19 @@ void InsertMode(Line *line_buffer, buffer *buf, int ch, size_t *current_line)
         buf = line_buffer->line_ptr[line_buffer->cur_pos];
     }
 
-    else if(get_brace_type(ch) == BRACE_OPEN_CURLY)
+    else if(get_brace_type(ch).Brace == BRACE_OPEN_CURLY)
     {
         insert(buf,ch);
         insert(buf,'}');
         cursor_left(buf);
     }
-    else if(get_brace_type(ch) == BRACE_OPEN_ROUND)
+    else if(get_brace_type(ch).Brace == BRACE_OPEN_ROUND)
     {
         insert(buf,ch);
         insert(buf,')');
         cursor_left(buf);
     }
-    else if(get_brace_type(ch) == BRACE_OPEN_SQUARE)
+    else if(get_brace_type(ch).Brace == BRACE_OPEN_SQUARE)
     {
         insert(buf,ch);
         insert(buf,']');
@@ -425,22 +468,8 @@ void load_file(char *file_name, Line *line_buf)
 
 
 
-void ruler(WINDOW* status_bar,WINDOW* line_bar,size_t row, size_t col)
-{
-    start_color();
-    init_pair(1,COLOR_YELLOW,COLOR_BLACK);
-    wattron(line_bar,COLOR_PAIR(1));
-    wattron(line_bar,WA_BOLD);
-    mvwprintw(line_bar,col,1,"%zu",col+1);
-    mvwprintw(status_bar,0, getmaxx(status_bar) - 15, "%.3zu:%.3zu", col, row);
-    mvwprintw(status_bar,0, 0, "%s", Mode());
-    wrefresh(status_bar);
-    wrefresh(line_bar);
-}
 
-
-
-void handle_mode(char* file_name,Line* line_buf,int ch,size_t x,size_t y)
+void handle_mode(WINDOW* status_bar,Line* line_buf,buffer* cmd_buf,int ch,size_t x,size_t y)
 
 {
 
@@ -448,19 +477,105 @@ void handle_mode(char* file_name,Line* line_buf,int ch,size_t x,size_t y)
     {
     
         case NORMAL:
-            NormalMode(file_name, line_buf, line_buf->line_ptr[line_buf->cur_pos], ch,x, y);
+            NormalMode(status_bar,line_buf, line_buf->line_ptr[line_buf->cur_pos], ch,x, y);
             break;
 
         case INSERT:
             InsertMode(line_buf, line_buf->line_ptr[line_buf->cur_pos], ch, &line_buf->cur_pos);
             break;
 
+        case COMMAND:
+            CommandMode(status_bar,cmd_buf,line_buf,ch);
+            break;
         case REPLACE:
             break;
 
     }
 
 }
+
+
+void exec_command(buffer* cmd_buf,Line* line_buf)
+{
+    char* token = strtok(cmd_buf->buffer," ");
+
+    if(!strcmp(token,"q")) exit(0);
+
+    if(!strcmp(token,"w"))
+    {
+        token = strtok(NULL," ");
+
+        if(!token) save_file(line_buf);
+        else 
+        {
+            line_buf->file_name = token;
+            save_file(line_buf);
+        }
+    }    
+    
+}
+
+void CommandMode(WINDOW* status_bar,buffer* cmd_buf,Line* line_buf,int ch)
+{
+    
+        
+    werase(status_bar);
+    mvwprintw(status_bar,1,0,":");
+    wmove(status_bar,1,1);
+
+    switch(ch)
+    {
+        case KEY_ESC:
+            mode = NORMAL;
+            memset(cmd_buf->buffer,0,cmd_buf->gap_end);
+            break;
+        case KEY_BACKSPACE:
+            delete(cmd_buf);
+            break;
+        case ENTER:
+            exec_command(cmd_buf,line_buf); 
+            break;
+        default:
+            insert(cmd_buf,ch);
+            break;
+    }
+
+    mvwprintw(status_bar,1, 1, "%s",cmd_buf->buffer);
+}
+
+
+
+void ruler(WINDOW* status_bar,WINDOW* line_bar,size_t lines,size_t offset,size_t row, size_t col)
+{
+    start_color();
+    init_pair(1,COLOR_YELLOW,COLOR_BLACK);
+    wattron(line_bar,COLOR_PAIR(1));
+    wattron(line_bar,WA_BOLD);
+    for(size_t i=offset;i<lines;i++) mvwprintw(line_bar,i-offset,1,"%zu",i+1);
+    wmove(line_bar,0,0);
+    mvwprintw(status_bar,0, getmaxx(status_bar) - 15, "%.3zu:%.3zu", row+1, col+1);
+    mvwprintw(status_bar,0, 1, "%s", Mode());
+    wrefresh(status_bar);
+    wrefresh(line_bar);
+}
+
+
+void render_line(WINDOW* main_win,Line* line_buf,size_t* row_off,size_t max_row)
+{
+
+        if(line_buf->cur_pos > (*row_off)+max_row-1) *row_off = line_buf->cur_pos-max_row+1;
+        if(line_buf->cur_pos < (*row_off)+1) *row_off = line_buf->cur_pos;
+
+        for (int i = *row_off; i < line_buf->total_lines; i++)
+        {
+            size_t offset = i-(*row_off);
+            mvwprintw(main_win,offset, 0, "%s", line_buf->line_ptr[i]->buffer);
+        }
+
+
+}
+
+
 
 
 int main(int argc, char **argv)
@@ -470,63 +585,58 @@ int main(int argc, char **argv)
 
 
     int row,col;
-
     getmaxyx(stdscr,row,col);
+
     WINDOW* main_win = newwin(row*0.96,col,0,4);
     WINDOW* status_bar = newwin(row*0.05,col,row-2,0);
     WINDOW* line_bar = newwin(row-2,4,0,0);
+
     keypad(main_win,TRUE);
+    keypad(status_bar,TRUE);
+    
     getmaxyx(main_win,row,col);
+
     wrefresh(line_bar);
     wrefresh(main_win);
     wrefresh(status_bar);
 
 
     size_t row_off = 0;
-    int ch,x = 0,y = 0;
-    size_t offset = 0;
+    int ch,cur_row = 0,cur_col = 0;
+
     buffer *buf = allocate_buffer(MIN_BUF_SIZE);
     Line *line_buf = allocate_ptr(100);
+    buffer* cmd_buf = allocate_buffer(MIN_BUF_SIZE);
     insert_line(line_buf, buf, line_buf->cur_pos);
+    line_buf->file_name = argv[1];
 
 
 
-
-    if (argc < 2) 
-        argv[1] = "untitled";
-    else 
-        load_file(argv[1], line_buf);
+    if (argc < 2) line_buf->file_name = "untitled";
+    else  load_file(line_buf->file_name, line_buf);
 
     
     while (ch != CTRL('q'))
     {
 
-        x = line_buf->line_ptr[line_buf->cur_pos]->cursor;
-        y = line_buf->cur_pos;
+        cur_col = line_buf->line_ptr[line_buf->cur_pos]->cursor;
+        cur_row = line_buf->cur_pos;
 
         #ifdef CLEAR
-        //wclear(main_win);
+        werase(line_bar);
+        werase(main_win);
+        //werase(status_bar);
         #endif
 
-        if(line_buf->cur_pos > row_off+row) row_off = line_buf->cur_pos-row;
-        if(line_buf->cur_pos < row_off) row_off -= 1;
-        for (int i = row_off; i < line_buf->total_lines; i++)
-        {
-            size_t offset = i-row_off;
-            mvwprintw(main_win,offset, 0, "%s", line_buf->line_ptr[i]->buffer);
- 
-        }
-
-
-        ruler(status_bar,line_bar,x,y);
-        wmove(main_win,y,x);
+        render_line(main_win,line_buf,&row_off,row);
+        ruler(status_bar,line_bar,line_buf->total_lines,row_off,cur_row,cur_col);
+        wmove(main_win,cur_row-row_off,cur_col);
 
         ch = wgetch(main_win);
-        handle_mode(argv[1],line_buf,ch,x,y);
+        handle_mode(status_bar,line_buf,cmd_buf,ch,cur_row,cur_col);
 
      }
 
-    refresh();
     endwin();
     return 0;
 }

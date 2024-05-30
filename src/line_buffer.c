@@ -23,7 +23,6 @@ Line *allocate_ptr(size_t init_size)
 
 
     line_buf->total_size = init_size;
-    line_buf->buf_end = init_size;
     line_buf->cur_pos = 0;
     line_buf->total_lines = 0;
     return line_buf;
@@ -48,13 +47,13 @@ void free_line(Line* line_buf)
 #define ln_used(line_buf)  (ln_front (line_buf) + ln_back (line_buf)) //total no of lines in line buffer
 
 
-
+/*
 void move_line(Line* line_buf,buffer** new_buf,size_t new_size)
 {
     memmove(new_buf+new_size-ln_back(line_buf),line_buf->line_ptr+line_buf->buf_end,ln_back(line_buf));
 
 }
-
+*/
 
 bool grow_line(Line* line_buf,size_t new_size)
 {
@@ -75,7 +74,7 @@ bool grow_line(Line* line_buf,size_t new_size)
 bool insert_line(Line *line_buf, buffer *buf, size_t line_no)
 {
 
-    if(line_buf->cur_pos == line_buf->total_size)
+    if(line_buf->cur_pos == line_buf->total_size-1)
     {
         size_t new_size = (line_buf->total_size > 0) ? line_buf->total_size*2 : MIN_LINE_BUF_SIZE;
 
@@ -92,7 +91,7 @@ bool insert_line(Line *line_buf, buffer *buf, size_t line_no)
     return true;
 }
 
-
+/*
 void shrink_line(Line* line_buf)
 {
     if(ln_used(line_buf) < line_buf->total_size)
@@ -112,6 +111,7 @@ void shrink_line(Line* line_buf)
 }
 
 }
+*/
 
 
 void prev_line(Line* line_buf)

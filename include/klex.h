@@ -18,14 +18,17 @@
 #define KEY_Q 'q'
 #define KEY_ESC 27
 #define BUFFER 1024
-#define CTRL(x) ((x) & 0x1f)
 #define BRACE_CAP 128
+#define CTRL(x) ((x) & 0x1f)
+#define JMP_LEN 8
 
 typedef enum
 {
 	NORMAL,
 	INSERT,
-	REPLACE
+	REPLACE,
+    VISUAL,
+    COMMAND
 } MODE;
 
 
@@ -45,24 +48,34 @@ typedef struct
 {
     buffer** line_ptr; //holds pointer to different (buffer*) 
     size_t cur_pos; //current editing line
-    size_t buf_end;  //end of the buffer
     size_t total_lines; //how many lines it currently holds
     size_t total_size;  //capacity of the buffer
-
+    char* file_name;
 }Line;
 
+
+typedef struct
+{
+    BraceType Brace;
+    bool Closing;
+}Brace;
 
 
 char* Mode(); //mode specifier
 void EditorStart(); // initalizes ncurses screen
-void NormalMode(char* file,Line*,buffer*,int,int,int); // Normal mode
+void NormalMode(WINDOW*,Line*,buffer*,int,int,int); // Normal mode
+void CommandMode(WINDOW*,buffer*,Line*,int);
 void InsertMode(Line*,buffer*,int,size_t*); //Insert mode
-void ruler(WINDOW*,WINDOW*,size_t,size_t);
+void ruler(WINDOW*,WINDOW*,size_t,size_t,size_t,size_t);
 void load_file(char*,Line*);
-void save_file(char*,Line*);
-void render_line(WINDOW*,Line*,size_t*,size_t*,size_t*);
-void handle_mode(char*,Line*,int,size_t,size_t);
-int find_brace(Line*,BraceType,size_t);
+void save_file(Line*);
+void render_line(WINDOW*,Line*,size_t*,size_t);
+void handle_mode(WINDOW*,Line*,buffer*,int,size_t,size_t);
+int find_brace(Line*,Brace,size_t);
+Brace find_pair_brace(Brace);
+void exec_command(buffer*,Line*);
+
+
 
 Line* allocate_ptr(size_t); // allocates the line buffer for the given size
 bool insert_line(Line*,buffer*,size_t); //insert a buffer* to the line buffer at a given line position
