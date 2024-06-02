@@ -3,7 +3,7 @@ klex is a text editor written in C using ncurses library as a learning project
 
 ## Quick Start
 
-"Dependecies : gcc,make,make"
+"Dependecies : gcc,ncurses,make"
 
 
 1.Go to source directory
